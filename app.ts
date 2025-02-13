@@ -39,11 +39,10 @@ startButton.addEventListener("click", async () => {
         lowPassFilter.frequency.value = 1000; // 1kHz 以下を通過
         lowPassFilter.Q.value = 1.0; // フィルターの鋭さ
 
-        const highPassFilter = audioContext.createBiquadFilter();
-        highPassFilter.type = "highpass";
-        highPassFilter.frequency.value = 100;
-        highPassFilter.Q.value = 1.0;
-
+        // const highPassFilter = audioContext.createBiquadFilter();
+        // highPassFilter.type = "highpass";
+        // highPassFilter.frequency.value = 100;
+        // highPassFilter.Q.value = 1.0;
 
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 32768;
@@ -52,8 +51,9 @@ startButton.addEventListener("click", async () => {
 
         // オーディオノードの接続
         source.connect(lowPassFilter);
-        lowPassFilter.connect(highPassFilter);
-        highPassFilter.connect(analyser)
+        lowPassFilter.connect(analyser);
+        // lowPassFilter.connect(highPassFilter);
+        // highPassFilter.connect(analyser)
 
         recording = true;
         draw();
@@ -77,16 +77,18 @@ stopButton.addEventListener("click", () => {
 function estimateFrequency(buffer: Float32Array, sampleRate: number): number {
     let size = buffer.length;
     let maxOffset = 44100 * 0.02; // 20ms 分のオフセット
+    let correlations = new Array(maxOffset).fill(0);
     let bestOffset = -1;
     let bestCorrelation = 0;
 
-    for (let offset = 1; offset < maxOffset; offset++) {
+    for (let offset = 30; offset < maxOffset; offset++) {
         let correlation = 0;
 
         for (let i = 0; i < maxOffset; i++) {
             correlation += buffer[i] * buffer[i + offset];
         }
 
+        correlations[offset] = correlation;
         correlation /= maxOffset;
 
         if (correlation > bestCorrelation) {
@@ -95,12 +97,22 @@ function estimateFrequency(buffer: Float32Array, sampleRate: number): number {
         }
     }
 
+    // 相関値をソートして高いものからインデックスと共に10個表示
+    const sortedCorrelations = correlations
+        .map((value, index) => ({ value, index, freq: sampleRate / index }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 3)
+        .map(({ value, index, freq }) => value.toFixed(2));
+    console.log("Top 10 correlations:", sortedCorrelations);
+
     if (bestOffset === -1) return 0;
 
     return sampleRate / bestOffset;
 }
 
-let lastFreqUpdateTime = 0; 
+let lastFreqUpdateTime = 0;
+const freqHistory: number[] = []; // 過去の周波数データ
+const smoothingWindow = 5; // 窓サイズ（中央値を取るデータ数）
 
 // 波形と周波数の描画
 function draw() {
@@ -113,12 +125,22 @@ function draw() {
     const now = Date.now(); // 現在の時間を取得
 
     // 周波数を100msごとに更新
-    if (now - lastFreqUpdateTime >= 100) {  // 100ms 経過したら
+    if (now - lastFreqUpdateTime >= 200) {  // 100ms 経過したら
         lastFreqUpdateTime = now;  // 更新時刻を保存
 
         // 周波数を推定
-        const frequency = estimateFrequency(dataArray, audioContext!.sampleRate);
-        freqDisplay.textContent = `周波数: ${frequency.toFixed(2)} Hz`;
+        const rawFrequency = estimateFrequency(dataArray, audioContext!.sampleRate);
+        
+        // 直近のデータを保存（最大 smoothingWindow 個）
+        freqHistory.push(rawFrequency);
+        if (freqHistory.length > smoothingWindow) {
+            freqHistory.shift(); // 古いデータを削除
+        }
+
+        // Median Smoothing を適用
+        const smoothedFrequency = median(freqHistory);
+        
+        freqDisplay.textContent = `周波数: ${smoothedFrequency.toFixed(2)} Hz`;
     }
 
 
@@ -143,4 +165,17 @@ function draw() {
         x += sliceWidth;
     }
     ctxWaveform.stroke();
+}
+
+function median(values: number[]): number {
+    if (values.length === 0) return 0;
+
+    const sorted = [...values].sort((a, b) => a - b); // ソート
+    const mid = Math.floor(sorted.length / 2);
+
+    if (sorted.length % 2 === 0) {
+        return (sorted[mid - 1] + sorted[mid]) / 2; // 偶数個の場合は2つの平均
+    } else {
+        return sorted[mid]; // 奇数個の場合は中央値
+    }
 }
