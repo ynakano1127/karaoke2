@@ -115,6 +115,9 @@ function estimateFrequency(buffer: Float32Array, sampleRate: number): number {
 let lastFreqUpdateTime = 0;
 const freqHistory: number[] = []; // 過去の周波数データ
 const smoothingWindow = 5; // 窓サイズ（中央値を取るデータ数）
+const minFrequency = 80;
+const maxFrequency = 300;
+const maxHistory = 100; // 最大データ数（100ms * 100 = 10秒分）
 
 // 波形と周波数の描画
 function draw() {
@@ -127,7 +130,7 @@ function draw() {
     const now = Date.now(); // 現在の時間を取得
 
     // 周波数を100msごとに更新
-    if (now - lastFreqUpdateTime >= 200) {  // 100ms 経過したら
+    if (now - lastFreqUpdateTime >= 100) {  // 100ms 経過したら
         lastFreqUpdateTime = now;  // 更新時刻を保存
 
         // 周波数を推定
@@ -138,14 +141,16 @@ function draw() {
         
         // 直近のデータを保存（最大 smoothingWindow 個）
         freqHistory.push(rawFrequency);
-        if (freqHistory.length > smoothingWindow) {
+        if (freqHistory.length > maxHistory) {
             freqHistory.shift(); // 古いデータを削除
         }
 
         // Median Smoothing を適用
-        const smoothedFrequency = median(freqHistory);
+        const medianFreqHistory = freqHistory.slice(-smoothingWindow);
+        const smoothedFrequency = median(medianFreqHistory);
         
         freqDisplay.textContent = `周波数: ${smoothedFrequency.toFixed(2)} Hz`;
+        drawFrequencyGraph(freqHistory);
     }
 
 
@@ -183,4 +188,26 @@ function median(values: number[]): number {
     } else {
         return sorted[mid]; // 奇数個の場合は中央値
     }
+}
+
+function drawFrequencyGraph(freqData: number[]) {
+    ctxFrequency.clearRect(0, 0, canvasFrequency.width, canvasFrequency.height);
+    ctxFrequency.beginPath();
+    ctxFrequency.strokeStyle = "red";
+    ctxFrequency.lineWidth = 2;
+
+    const sliceWidth = canvasFrequency.width / maxHistory;
+    let x = 0;
+
+    for (let i = 0; i < freqData.length; i++) {
+        const freq = Math.max(minFrequency, Math.min(maxFrequency, freqData[i]));
+        const normalizedY = (freq - minFrequency) / (maxFrequency - minFrequency);
+        const y = canvasFrequency.height - normalizedY * canvasFrequency.height;
+
+        if (i === 0) ctxFrequency.moveTo(x, y);
+        else ctxFrequency.lineTo(x, y);
+
+        x += sliceWidth;
+    }
+    ctxFrequency.stroke();
 }
