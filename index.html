@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音声周波数解析</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #222;
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        button {
+            font-size: 16px;
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #start {
+            background-color: lime;
+            color: black;
+        }
+        #stop {
+            background-color: red;
+            color: white;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            border: 1px solid white;
+            background-color: black;
+        }
+        #freq-display {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>音声周波数解析</h1>
+    <button id="start">録音開始</button>
+    <button id="stop">録音停止</button>
+    <div id="freq-display">周波数: -- Hz</div>
+    
+    <h2>波形表示</h2>
+    <canvas id="waveform" width="600" height="200"></canvas>
+    
+    <h2>周波数表示</h2>
+    <canvas id="frequency" width="600" height="200"></canvas>
+
+    <script src="app.js"></script>
+</body>
+</html>
