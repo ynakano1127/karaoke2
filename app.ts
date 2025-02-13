@@ -76,11 +76,13 @@ stopButton.addEventListener("click", () => {
 // 自己相関関数による周波数推定（ローパスフィルター適用後）
 function estimateFrequency(buffer: Float32Array, sampleRate: number): number {
     let size = buffer.length;
-    let maxOffset = 44100 * 0.02; // 20ms 分のオフセット
+    let maxOffset = 44100 * 0.01; // 最低100Hzの音を取得
     let correlations = new Array(maxOffset).fill(0);
     let bestOffset = -1;
     let bestCorrelation = 0;
 
+    // 自己相関関数を計算
+    // 最高1/(30/44100)=1470Hzまでの周波数を取得するので30から始める
     for (let offset = 30; offset < maxOffset; offset++) {
         let correlation = 0;
 
@@ -98,12 +100,12 @@ function estimateFrequency(buffer: Float32Array, sampleRate: number): number {
     }
 
     // 相関値をソートして高いものからインデックスと共に10個表示
-    const sortedCorrelations = correlations
-        .map((value, index) => ({ value, index, freq: sampleRate / index }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 3)
-        .map(({ value, index, freq }) => value.toFixed(2));
-    console.log("Top 10 correlations:", sortedCorrelations);
+    // const sortedCorrelations = correlations
+    //     .map((value, index) => ({ value, index, freq: sampleRate / index }))
+    //     .sort((a, b) => b.value - a.value)
+    //     .slice(0, 3)
+    //     .map(({ value, index, freq }) => value.toFixed(2));
+    // console.log("Top 10 correlations:", sortedCorrelations);
 
     if (bestOffset === -1) return 0;
 
@@ -129,7 +131,10 @@ function draw() {
         lastFreqUpdateTime = now;  // 更新時刻を保存
 
         // 周波数を推定
+        const startTime = performance.now();
         const rawFrequency = estimateFrequency(dataArray, audioContext!.sampleRate);
+        const endTime = performance.now();
+        // console.log(`Frequency estimation took ${endTime - startTime} milliseconds`);
         
         // 直近のデータを保存（最大 smoothingWindow 個）
         freqHistory.push(rawFrequency);
